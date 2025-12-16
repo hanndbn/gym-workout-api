@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sessions     WorkoutSession[]
+  templates    WorkoutTemplate[]
+  refreshToken RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Exercise {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   // e.g., "chest", "back", "legs", "shoulders", "arms", "core"
+  equipment   String[] // e.g., ["barbell", "dumbbell", "machine"]
+  muscleGroup String[] // e.g., ["pecs", "triceps"]
+  difficulty  String   // "beginner", "intermediate", "advanced"
+  videoUrl    String?
+  imageUrl    String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  templateExercises TemplateExercise[]
+  sessionExercises  SessionExercise[]
+
+  @@map("exercises")
+}
+
+model WorkoutTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  userId      String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises TemplateExercise[]
+  sessions  WorkoutSession[]
+
+  @@map("workout_templates")
+}
+
+model TemplateExercise {
+  id         String  @id @default(uuid())
+  templateId String
+  exerciseId String
+  order      Int
+  sets       Int
+  reps       String? // e.g., "8-12" or "10"
+  restTime   Int?    // seconds
+  notes      String?
+
+  // Relations
+  template WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, exerciseId])
+  @@map("template_exercises")
+}
+
+model WorkoutSession {
+  id         String    @id @default(uuid())
+  userId     String
+  templateId String?
+  name       String
+  startTime  DateTime
+  endTime    DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template  WorkoutTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  exercises SessionExercise[]
+
+  @@map("workout_sessions")
+}
+
+model SessionExercise {
+  id        String   @id @default(uuid())
+  sessionId String
+  exerciseId String
+  order     Int
+  sets      SessionSet[]
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  session  WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@map("session_exercises")
+}
+
+model SessionSet {
+  id                String   @id @default(uuid())
+  sessionExerciseId String
+  setNumber         Int
+  reps              Int
+  weight            Float?   // kg
+  restTime          Int?     // seconds
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+
+  @@map("session_sets")
+}
